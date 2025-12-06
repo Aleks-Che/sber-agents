@@ -19,6 +19,11 @@ class Config:
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
     MAX_HISTORY_LENGTH: int = int(os.getenv("MAX_HISTORY_LENGTH", "10"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    LOG_FILE: str = os.getenv("LOG_FILE", "")
+    LOG_FORMAT: str = os.getenv(
+        "LOG_FORMAT",
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     @classmethod
     def validate(cls) -> None:

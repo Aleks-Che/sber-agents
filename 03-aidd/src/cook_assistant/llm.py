@@ -69,13 +69,21 @@ class LLMClient:
         max_attempts = 2
         for attempt in range(1, max_attempts + 1):
             try:
+                logger.debug(
+                    f"LLM request attempt {attempt}: model={self.model}, "
+                    f"message length={len(user_message)}, history entries={len(history) if history else 0}"
+                )
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=0.7,
                     max_tokens=1000,
                 )
-                return response.choices[0].message.content
+                content = response.choices[0].message.content
+                logger.info(
+                    f"LLM request successful: response length={len(content) if content else 0}"
+                )
+                return content
             except asyncio.TimeoutError:
                 logger.warning(f"LLM request timeout (attempt {attempt})")
                 if attempt == max_attempts:
@@ -96,13 +104,21 @@ class LLMClient:
         max_attempts = 2
         for attempt in range(1, max_attempts + 1):
             try:
+                logger.debug(
+                    f"LLM recipe request attempt {attempt}: model={self.model}, "
+                    f"query='{user_query[:50]}...'"
+                )
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=0.5,  # lower temperature for more structured output
                     max_tokens=1200,  # slightly more tokens for detailed recipe
                 )
-                return response.choices[0].message.content
+                content = response.choices[0].message.content
+                logger.info(
+                    f"LLM recipe request successful: response length={len(content) if content else 0}"
+                )
+                return content
             except asyncio.TimeoutError:
                 logger.warning(f"LLM recipe request timeout (attempt {attempt})")
                 if attempt == max_attempts:

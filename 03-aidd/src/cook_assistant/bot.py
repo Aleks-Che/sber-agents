@@ -1,9 +1,10 @@
 """Telegram bot with LLM culinary assistant."""
 import asyncio
 import logging
+import sys
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message
+from aiogram.types import Message, ErrorEvent
 from aiogram.filters import Command
 
 from .config import config
@@ -11,14 +12,34 @@ from .llm import llm_client
 from .storage import storage
 
 # Configure logging
-logging.basicConfig(
-    level=config.LOG_LEVEL,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+def setup_logging():
+    """Setup logging with configurable level, format, and file."""
+    root_logger = logging.getLogger()
+    root_logger.setLevel(config.LOG_LEVEL)
+
+    formatter = logging.Formatter(config.LOG_FORMAT)
+
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    # File handler if LOG_FILE is set
+    if config.LOG_FILE:
+        file_handler = logging.FileHandler(config.LOG_FILE, encoding="utf-8")
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
+
+@dp.error()
+async def error_handler(event: ErrorEvent) -> None:
+    """Global error handler."""
+    logger.error(f"Unhandled exception: {event.exception}", exc_info=event.exception)
 
 
 @dp.message(Command("start"))
@@ -93,7 +114,8 @@ async def cmd_recipe(message: Message) -> None:
         logger.error(f"LLM recipe failed for user {user_id}")
         response = (
             "Извините, сейчас не могу найти рецепт. "
-            "Попробуйте позже или уточните запрос."
+            "Попробуйте позже или уточните запрос.\n"
+            "Если проблема повторяется, попробуйте очистить историю диалога командой /reset."
         )
 
     logger.info(f"Recipe response to {user_id}: {response[:100]}...")
@@ -150,7 +172,8 @@ async def handle_message(message: Message) -> None:
         logger.error(f"LLM failed for user {user_id}")
         response = (
             "Извините, сейчас не могу ответить. "
-            "Попробуйте позже или задайте вопрос иначе."
+            "Попробуйте позже или задайте вопрос иначе.\n"
+            "Если проблема повторяется, попробуйте очистить историю диалога командой /reset."
         )
 
     logger.info(f"Response to {user_id}: {response[:100]}...")
