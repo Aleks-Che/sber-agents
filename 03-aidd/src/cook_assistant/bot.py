@@ -8,6 +8,7 @@ from aiogram.filters import Command
 
 from .config import config
 from .llm import llm_client
+from .storage import storage
 
 # Configure logging
 logging.basicConfig(
@@ -33,6 +34,7 @@ async def cmd_start(message: Message) -> None:
 async def handle_message(message: Message) -> None:
     """Handle user message with LLM."""
     user_id = message.from_user.id
+    chat_id = message.chat.id
     text = message.text or ""
     logger.info(f"Message from {user_id}: {text}")
 
@@ -41,10 +43,13 @@ async def handle_message(message: Message) -> None:
         return
 
     # Show typing indicator
-    await bot.send_chat_action(chat_id=message.chat.id, action="typing")
+    await bot.send_chat_action(chat_id=chat_id, action="typing")
 
-    # Generate LLM response
-    response = await llm_client.generate_response(text)
+    # Get dialog history
+    history = storage.get_messages(chat_id)
+
+    # Generate LLM response with history
+    response = await llm_client.generate_response(text, history)
     if response is None:
         logger.error(f"LLM failed for user {user_id}")
         response = (
@@ -54,6 +59,10 @@ async def handle_message(message: Message) -> None:
 
     logger.info(f"Response to {user_id}: {response[:100]}...")
     await message.answer(response)
+
+    # Store user message and assistant response
+    storage.add_message(chat_id, "user", text)
+    storage.add_message(chat_id, "assistant", response)
 
 
 async def main() -> None:

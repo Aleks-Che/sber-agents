@@ -1,5 +1,5 @@
 """In-memory storage for dialog context."""
-from typing import Dict, List, Optional
+from typing import Dict, List
 from datetime import datetime
 
 from .config import config
