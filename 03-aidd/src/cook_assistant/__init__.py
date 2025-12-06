@@ -1,0 +1,1 @@
+"""Cook Assistant Telegram Bot."""
