@@ -30,6 +30,38 @@ async def cmd_start(message: Message) -> None:
     )
 
 
+@dp.message(Command("help"))
+async def cmd_help(message: Message) -> None:
+    """Handle /help command."""
+    help_text = (
+        "📚 *Доступные команды:*\n"
+        "/start – приветствие и описание бота\n"
+        "/help – эта справка\n"
+        "/reset – очистить историю диалога\n"
+        "\n"
+        "💡 *Примеры запросов:*\n"
+        "• Как приготовить омлет?\n"
+        "• Что можно сделать из курицы и картофеля?\n"
+        "• Рецепт борща\n"
+        "• Сколько варить макароны?\n"
+        "\n"
+        "Просто напишите ваш кулинарный вопрос, и я постараюсь помочь! 🍽️"
+    )
+    await message.answer(help_text, parse_mode="Markdown")
+
+
+@dp.message(Command("reset"))
+async def cmd_reset(message: Message) -> None:
+    """Handle /reset command."""
+    chat_id = message.chat.id
+    storage.clear(chat_id)
+    logger.info(f"History cleared for chat {chat_id}")
+    await message.answer(
+        "История диалога очищена. "
+        "Теперь я не помню предыдущие сообщения. 🧹"
+    )
+
+
 @dp.message()
 async def handle_message(message: Message) -> None:
     """Handle user message with LLM."""
@@ -40,6 +72,27 @@ async def handle_message(message: Message) -> None:
 
     if not text.strip():
         await message.answer("Пожалуйста, отправьте текстовое сообщение.")
+        return
+
+    # Check for help keywords
+    help_keywords = ["help", "помощь", "команды", "управление"]
+    lower_text = text.lower()
+    if any(keyword in lower_text for keyword in help_keywords):
+        help_text = (
+            "📚 *Доступные команды:*\n"
+            "/start – приветствие и описание бота\n"
+            "/help – эта справка\n"
+            "/reset – очистить историю диалога\n"
+            "\n"
+            "💡 *Примеры запросов:*\n"
+            "• Как приготовить омлет?\n"
+            "• Что можно сделать из курицы и картофеля?\n"
+            "• Рецепт борща\n"
+            "• Сколько варить макароны?\n"
+            "\n"
+            "Просто напишите ваш кулинарный вопрос, и я постараюсь помочь! 🍽️"
+        )
+        await message.answer(help_text, parse_mode="Markdown")
         return
 
     # Show typing indicator
