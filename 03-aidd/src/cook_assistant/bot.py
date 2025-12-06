@@ -38,6 +38,7 @@ async def cmd_help(message: Message) -> None:
         "/start – приветствие и описание бота\n"
         "/help – эта справка\n"
         "/reset – очистить историю диалога\n"
+        "/recipe <запрос> – поиск рецепта по ключевым словам\n"
         "\n"
         "💡 *Примеры запросов:*\n"
         "• Как приготовить омлет?\n"
@@ -62,6 +63,47 @@ async def cmd_reset(message: Message) -> None:
     )
 
 
+@dp.message(Command("recipe"))
+async def cmd_recipe(message: Message) -> None:
+    """Handle /recipe command."""
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    text = message.text or ""
+    logger.info(f"Recipe command from {user_id}: {text}")
+
+    # Extract query after /recipe
+    parts = text.split(maxsplit=1)
+    if len(parts) < 2:
+        await message.answer(
+            "Пожалуйста, укажите запрос после команды /recipe.\n"
+            "Например: /recipe паста карбонара"
+        )
+        return
+    query = parts[1].strip()
+    if not query:
+        await message.answer("Запрос не может быть пустым.")
+        return
+
+    # Show typing indicator
+    await bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    # Generate recipe-specific response
+    response = await llm_client.generate_recipe_response(query)
+    if response is None:
+        logger.error(f"LLM recipe failed for user {user_id}")
+        response = (
+            "Извините, сейчас не могу найти рецепт. "
+            "Попробуйте позже или уточните запрос."
+        )
+
+    logger.info(f"Recipe response to {user_id}: {response[:100]}...")
+    await message.answer(response)
+
+    # Store interaction in history? Optionally, we can store as user/assistant messages
+    storage.add_message(chat_id, "user", f"/recipe {query}")
+    storage.add_message(chat_id, "assistant", response)
+
+
 @dp.message()
 async def handle_message(message: Message) -> None:
     """Handle user message with LLM."""
@@ -83,6 +125,7 @@ async def handle_message(message: Message) -> None:
             "/start – приветствие и описание бота\n"
             "/help – эта справка\n"
             "/reset – очистить историю диалога\n"
+            "/recipe <запрос> – поиск рецепта по ключевым словам\n"
             "\n"
             "💡 *Примеры запросов:*\n"
             "• Как приготовить омлет?\n"

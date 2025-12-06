@@ -21,6 +21,34 @@ SYSTEM_PROMPT = """Ты — Кулинарный помощник, экспер�
 
 Формат ответов: текст с эмодзи для наглядности, списки, где уместно."""
 
+RECIPE_PROMPT = """Ты — Кулинарный помощник, специализирующийся на рецептах. Пользователь запрашивает рецепт блюда. Твоя задача — предоставить подробный, структурированный рецепт.
+
+**Требования к ответу:**
+1. **Название блюда** — выдели жирным или эмодзи.
+2. **Ингредиенты** — список с точными количествами (в метрической системе, граммы/миллилитры, штуки). Укажи возможные замены, если они уместны.
+3. **Шаги приготовления** — пошаговая инструкция с номерами. Каждый шаг должен быть понятным и кратким.
+4. **Время приготовления** — общее время и время на подготовку.
+5. **Советы** — дополнительные рекомендации по подаче, хранению, вариантам.
+
+**Стиль:** дружелюбный, мотивирующий, используй эмодзи для визуального разделения разделов.
+
+**Пример структуры ответа:**
+🍝 **Паста Карбонара**
+
+🥘 **Ингредиенты:**
+- Спагетти — 200 г
+- ...
+
+🔪 **Шаги приготовления:**
+1. ...
+2. ...
+
+⏱ **Время приготовления:** 30 минут (10 минут подготовка, 20 минут готовка).
+
+💡 **Советы:** ...
+
+Если запрос недостаточно конкретен, уточни у пользователя или предложи несколько вариантов. Если блюдо не существует или запрос не по кулинарии, вежливо ответи, что можешь помочь только с рецептами."""
+
 
 class LLMClient:
     """Client for OpenRouter API."""
@@ -60,6 +88,33 @@ class LLMClient:
                 await asyncio.sleep(1)
         return None
 
+    async def generate_recipe_response(
+        self, user_query: str
+    ) -> Optional[str]:
+        """Generate structured recipe response for given query."""
+        messages = self._build_recipe_messages(user_query)
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0.5,  # lower temperature for more structured output
+                    max_tokens=1200,  # slightly more tokens for detailed recipe
+                )
+                return response.choices[0].message.content
+            except asyncio.TimeoutError:
+                logger.warning(f"LLM recipe request timeout (attempt {attempt})")
+                if attempt == max_attempts:
+                    logger.error("LLM recipe request timed out after all attempts")
+                    return None
+            except Exception as e:
+                logger.error(f"LLM recipe request failed (attempt {attempt}): {e}")
+                if attempt == max_attempts:
+                    return None
+                await asyncio.sleep(1)
+        return None
+
     def _build_messages(
         self, user_message: str, history: Optional[List[Dict]]
     ) -> List[Dict[str, str]]:
@@ -70,6 +125,15 @@ class LLMClient:
             messages.extend(history)
         messages.append({"role": "user", "content": user_message})
         return messages
+
+    def _build_recipe_messages(
+        self, user_query: str
+    ) -> List[Dict[str, str]]:
+        """Build messages list with recipe-specific prompt."""
+        return [
+            {"role": "system", "content": RECIPE_PROMPT},
+            {"role": "user", "content": user_query},
+        ]
 
 
 llm_client = LLMClient()
